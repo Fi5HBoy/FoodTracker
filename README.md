@@ -1,5 +1,5 @@
-#**ReadMe:**
-  ##**Summary:**
+# **ReadMe:**
+##  **Summary:**
       This is a food tracker to track daily meals
       Three Files are used or generated during the program
           FoodItems.csv  |  MenuItems.csv  |  mealData.csv
@@ -8,7 +8,7 @@
       Any corrupted files will be renamed to save corrupted data and a new file will be created
       All data is ordered by date, if available, then by alphabetical before it is saved to its file
 
-  ##**Menu Structure:**
+##  **Menu Structure:**
       Food Menu:
           Food Editor:
               Add, Edit, or Remove Food Data
@@ -22,7 +22,7 @@
       Save A Meal:
           Add Meal to Saved Meals
 
-  ##**Usage:**
+##  **Usage:**
       Enter the number corresponding with the desired action
       You will be asked to fill in any desired information as you go along
       You can enter 'q' to quit any of these prompts and it will take you back to the last menu
