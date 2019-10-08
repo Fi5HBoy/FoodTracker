@@ -12,7 +12,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 public final class Utilities {
-    static boolean QuitPrompt(String s) {
+    public static boolean QuitPrompt(String s) {
         boolean quit = s.equalsIgnoreCase("q") || s.equalsIgnoreCase("quit");
         if (quit) System.out.println();
         return quit;
@@ -50,44 +50,6 @@ public final class Utilities {
         if (!renamed) {
             System.out.println("Could Not Rename Corrupted File: File Will Be Deleted On Program Exit");
         }
-    }
-
-    static boolean isPyramidWord(String s){
-        int length = s.trim().length();
-
-        if(length < 1){
-            return false;
-        } else if(length == 1){
-            return true;
-        } else if(s.split(" ").length > 1){
-            return false;
-        }
-
-        Hashtable<Character, Integer> charCount = new Hashtable<>();
-
-        //if this is not a sum of consecutive numbers, then it cannot be a pyramid word
-        int n = isConsecutiveSum(length);
-
-        if(n == -1){
-            return false;
-        }
-
-        int[] pyramidValues = IntStream.rangeClosed(1, n).toArray();
-
-        for(char c : s.toCharArray()){
-            charCount.compute(c, (k, v)->v==null? 1 : v+1);
-        }
-
-        ArrayList<Integer> countList = new ArrayList<>(charCount.values());
-        for(int count : countList){
-            if(pyramidValues[count-1] == 0){
-                return false;
-            } else{
-                pyramidValues[count-1] = 0;
-            }
-        }
-
-        return true;
     }
 
     static int isConsecutiveSum(int i){
