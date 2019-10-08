@@ -1,35 +1,36 @@
+package com.foodtrackerclitool;
 /*
-* ReadMe:
-*   Summary:
-*       This is a food tracker to track daily meals
-*       Three Files are used or generated during the program
-*           FoodItems.csv  |  MenuItems.csv  |  mealData.csv
-*
-*       Data will be saved back to these files after the program exits
-*       Any corrupted files will be renamed to save corrupted data and a new file will be created
-*       All data is ordered by date, if available, then by alphabetical before it is saved to its file
-*
-*   Menu Structure:
-*       Food Menu:
-*           Food Editor:
-*               Add, Edit, or Remove Food Data
-*           Food Viewer:
-*               View Food Data
-*       Menu Item Menu:
-*            Menu Item Editor:
-*               Add, Edit or Remove Menu Item Data
-*           Menu Item Viewer:
-*               View Menu Item Data
-*       Save A Meal:
-*           Add Meal to Saved Meals
-*
-*   Usage:
-*       Enter the number corresponding with the desired action
-*       You will be asked to fill in any desired information as you go along
-*       You can enter 'q' to quit any of these prompts and it will take you back to the last menu
-*       A Food must exist to add it to a Menu Item
-*       A Menu Item must exist to add it to Saved Meals
-* */
+ * ReadMe:
+ *   Summary:
+ *       This is a food tracker to track daily meals
+ *       Three Files are used or generated during the program
+ *           FoodItems.csv  |  MenuItems.csv  |  mealData.csv
+ *
+ *       Data will be saved back to these files after the program exits
+ *       Any corrupted files will be renamed to save corrupted data and a new file will be created
+ *       All data is ordered by date, if available, then by alphabetical before it is saved to its file
+ *
+ *   Menu Structure:
+ *       Food Menu:
+ *           Food Editor:
+ *               Add, Edit, or Remove Food Data
+ *           Food Viewer:
+ *               View Food Data
+ *       Menu Item Menu:
+ *            Menu Item Editor:
+ *               Add, Edit or Remove Menu Item Data
+ *           Menu Item Viewer:
+ *               View Menu Item Data
+ *       Save A Meal:
+ *           Add Meal to Saved Meals
+ *
+ *   Usage:
+ *       Enter the number corresponding with the desired action
+ *       You will be asked to fill in any desired information as you go along
+ *       You can enter 'q' to quit any of these prompts and it will take you back to the last menu
+ *       A Food must exist to add it to a Menu Item
+ *       A Menu Item must exist to add it to Saved Meals
+ * */
 
 import java.io.*;
 import java.nio.file.Files;
@@ -38,8 +39,17 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
-public class FoodTracker {
+import static com.foodtrackerclitool.Utilities.*;
+
+class GlobalConstants {
+    public static ArrayList<String> MealTypes = new ArrayList<>(Arrays.asList("Breakfast", "Brunch", "Lunch", "Dinner", "Dessert", "Snack"));
+}
+
+public class Main {
     //Input Menu Option Values
     private static final int QUIT = 0;
     private static final int FOOD_OPTIONS = 1;
@@ -57,11 +67,10 @@ public class FoodTracker {
     private static final String mealHeader = "Date,Meal,Items,Total Calories";
 
     //File Data Storage While FoodTracker Is Running
-    private static List<Food> foodData;
-    private static List<MenuItem> menuData;
-    private static List<Meal> mealData;
+    private static TreeMap<String, Food> foodData;
+    private static TreeMap<String, MenuItem> menuData;
+    private static TreeMap<Date, TreeMap<String, Meal>> mealData;
 
-    private static List<String> MealType = new ArrayList<>(Arrays.asList("Breakfast", "Brunch", "Lunch", "Dinner", "Dessert", "Snack"));
 
     public static void main(String[] args) {
 
@@ -76,10 +85,10 @@ public class FoodTracker {
             menuData = ReadMenuItems();
         } catch (CorruptedFileException e) {
             System.out.println(e.getMessage());
-            menuData = new ArrayList<>();
+            menuData = new TreeMap<>();
         } catch (NumberFormatException e) {
             RenameCorruptedFile(new File(menuFile));
-            menuData = new ArrayList<>();
+            menuData = new TreeMap<>();
             System.out.println("Corrupted File Detected: Invalid Values In Menu File");
         } catch (IOException e) {
             e.printStackTrace();
@@ -89,10 +98,10 @@ public class FoodTracker {
             mealData = ReadMealData();
         } catch (CorruptedFileException e) {
             System.out.println(e.getMessage());
-            mealData = new ArrayList<>();
+            mealData = new TreeMap<>();
         } catch (NumberFormatException e) {
             RenameCorruptedFile(new File(mealFile));
-            mealData = new ArrayList<>();
+            mealData = new TreeMap<>();
             System.out.println("Corrupted File Detected: Invalid Values In Meal File");
         } catch (IOException e) {
             e.printStackTrace();
@@ -140,17 +149,8 @@ public class FoodTracker {
 
     private static void SaveToFiles() {
         System.out.println("Saving Food Tracker Data");
-        if (foodData.size() > 1) foodData.sort((a, b) -> a.getName().compareToIgnoreCase(b.getName()));
-        if (menuData.size() > 1) menuData.sort((a, b) -> a.getName().compareToIgnoreCase(b.getName()));
 
         //Sort Meals By Date Then By Meal Type
-        if (mealData.size() > 1) {
-            mealData.sort((a, b) -> {
-                int x =  a.getMealDate().compareTo(b.getMealDate());
-                int y = MealType.indexOf(a.getMealType()) - MealType.indexOf(b.getMealType());
-                return x == 0? x : y;
-            });
-        }
 
         try {
             System.out.println("Saving Food");
@@ -172,14 +172,18 @@ public class FoodTracker {
             PrintWriter writer = new PrintWriter(file);
 
             writer.println(mealHeader);
-            for (Meal meal : mealData) {
-                writer.println(meal.getMealDate());
-                writer.println("," + meal.getMealType());
-                for (MenuItem menuItem : meal.getMealItems()) {
-                    writer.println(",," + menuItem.getName());
-                }
-                writer.println(",,," + meal.getTotalCalories());
-            }
+
+            mealData.forEach((date, meals) -> {
+                writer.println(date);
+                meals.forEach((type, meal) -> {
+                    writer.println("," + type);
+                    for (MenuItem menuItem : meal.getMealItems()) {
+                        writer.println(",," + menuItem.getName());
+                    }
+                    writer.println(",,," + meal.getTotalCalories());
+                });
+
+            });
 
             writer.close();
         } catch (IOException e) {
@@ -195,13 +199,13 @@ public class FoodTracker {
             PrintWriter writer = new PrintWriter(file);
 
             writer.println(menuHeader);
-            for (MenuItem menuItem : menuData) {
-                writer.println(menuItem.getName());
+            menuData.forEach((name, menuItem) -> {
+                writer.println(name);
                 for (Ingredient ingredient : menuItem.getIngredients()) {
                     writer.println("," + ingredient.getFood().getName() + "," + ingredient.getWeight());
                 }
                 writer.println(",," + menuItem.getTotalCalories());
-            }
+            });
 
             writer.close();
         } catch (IOException e) {
@@ -217,9 +221,7 @@ public class FoodTracker {
             PrintWriter writer = new PrintWriter(file);
 
             writer.println(foodHeader);
-            for (Food food : foodData) {
-                writer.println(food.toString().replace("\t",","));
-            }
+            foodData.forEach((name, food) -> writer.println(food.toString().replace("\t", ",")));
 
             writer.close();
         } catch (IOException e) {
@@ -232,7 +234,7 @@ public class FoodTracker {
         double totalCalories = 0;
         System.out.println("Which Meal Is This?");
 
-        for (String type : MealType) {
+        for (String type : GlobalConstants.MealTypes) {
             System.out.print(type + ", ");
         }
 
@@ -246,7 +248,7 @@ public class FoodTracker {
             if (QuitPrompt(mealType)) return;
             mealType = ToTitleCase(mealType);
 
-            while (!MealType.contains(mealType)) {
+            while (!GlobalConstants.MealTypes.contains(mealType)) {
                 System.out.println("Please Enter A Valid Meal Type:");
                 mealType = input.nextLine();
                 if (QuitPrompt(mealType)) return;
@@ -265,7 +267,7 @@ public class FoodTracker {
                     break;
                 }
 
-                MenuItem item = GetMenuItemByName(itemName);
+                MenuItem item = menuData.get(itemName);
 
                 while (item == null) {
                     System.out.println("Please Enter A Valid Menu Item:");
@@ -276,7 +278,7 @@ public class FoodTracker {
                         break out;
                     }
 
-                    item = GetMenuItemByName(itemName);
+                    item = menuData.get(itemName);
                 }
 
                 mealItems.add(item);
@@ -299,8 +301,8 @@ public class FoodTracker {
                     if (QuitPrompt(day)) return;
                 }
             }
-
-            mealData.add(new Meal(date, mealType, mealItems, totalCalories));
+            Meal meal = new Meal(date, mealType, mealItems, totalCalories);
+            mealData.get(date).put(mealType, meal);
         } catch (NumberFormatException e) {
             System.out.println("Invalid Input");
             System.out.println();
@@ -347,7 +349,7 @@ public class FoodTracker {
             String itemName = input.nextLine();
             if (QuitPrompt(itemName)) return;
 
-            MenuItem item = GetMenuItemByName(itemName);
+            MenuItem item = menuData.get(itemName);
 
             if (item == null) {
                 System.out.println("Item does not exist");
@@ -381,7 +383,7 @@ public class FoodTracker {
                     return;
                 } else if (answer == 'y' || answer == 'Y') {
                     break;
-                }  else if (answer == 'q' || answer == 'Q') {
+                } else if (answer == 'q' || answer == 'Q') {
                     return;
                 } else {
                     System.out.println("Yes or No? (y/n):");
@@ -389,11 +391,11 @@ public class FoodTracker {
                 }
             }
 
-            MenuItem item = new MenuItem(itemName,  new ArrayList<>());
+            MenuItem item = new MenuItem(itemName, new ArrayList<>());
             IngredientEditor(input, item);
 
             if (item.getIngredients().isEmpty()) {
-                menuData.remove(item);
+                menuData.remove(itemName);
                 return;
             }
 
@@ -408,7 +410,7 @@ public class FoodTracker {
                 System.out.println();
             }
 
-            menuData.add(item);
+            menuData.put(itemName, item);
         } catch (NumberFormatException e) {
             System.out.println("Invalid Input");
             System.out.println();
@@ -424,7 +426,7 @@ public class FoodTracker {
             System.out.println();
             if (QuitPrompt(itemName)) return;
 
-            MenuItem item = GetMenuItemByName(itemName);
+            MenuItem item = menuData.get(itemName);
 
             if (item == null) {
                 System.out.println("Creating New Menu Item");
@@ -439,7 +441,7 @@ public class FoodTracker {
                 char removeItem = input.nextLine().charAt(0);
 
                 if (removeItem == 'y' || removeItem == 'Y') {
-                    menuData.remove(GetMenuItemByName(itemName));
+                    menuData.remove(itemName);
                     System.out.println();
                     MenuEditor(input);
                     return;
@@ -483,7 +485,7 @@ public class FoodTracker {
                     System.out.println();
                 }
             } else {
-                Food food = GetFoodByName(ingredientName);
+                Food food = foodData.get(ingredientName);
 
                 if (food == null) {
                     System.out.println("Invalid Input: Food Does Not Exist, Please Enter An Existing Food");
@@ -513,17 +515,6 @@ public class FoodTracker {
             System.out.println();
             IngredientEditor(input, item);
         }
-    }
-
-    private static MenuItem GetMenuItemByName(String itemName) {
-        itemName = itemName.trim();
-        for (MenuItem item : menuData) {
-            if (item.getName().equalsIgnoreCase(itemName)) {
-                return item;
-            }
-        }
-
-        return null;
     }
 
     private static void DisplayMenuOptions() {
@@ -570,11 +561,11 @@ public class FoodTracker {
         System.out.println("Enter Food Name:");
 
         try {
-            String foodName = input.nextLine();
+            String foodName = input.nextLine().trim();
             System.out.println();
             if (QuitPrompt(foodName)) return;
 
-            Food food = GetFoodByName(foodName);
+            Food food = foodData.get(foodName);
 
             if (food == null) {
                 System.out.println("Food does not exist");
@@ -595,11 +586,11 @@ public class FoodTracker {
         System.out.println("Food Editor|Enter Food Name:");
         boolean newFood = false;
 
-        String foodName = input.nextLine();
+        String foodName = input.nextLine().trim();
         if (QuitPrompt(foodName)) return;
 
         while (foodName.isBlank()) {
-            foodName = input.nextLine();
+            foodName = input.nextLine().trim();
             if (QuitPrompt(foodName)) return;
         }
 
@@ -625,7 +616,7 @@ public class FoodTracker {
         }
 
         try {
-            Food food = GetFoodByName(foodName);
+            Food food = foodData.get(foodName);
             String s;
 
             if (food == null) {
@@ -644,7 +635,7 @@ public class FoodTracker {
                     if (answer == 'n' || answer == 'N') {
                         break;
                     } else if (answer == 'y' || answer == 'Y') {
-                        foodData.remove(food);
+                        foodData.remove(foodName);
                         System.out.println();
                         FoodEditor(input);
                         return;
@@ -710,8 +701,8 @@ public class FoodTracker {
 
             double cals = (9 * fat) + (4 * (carbs + protein));
 
+            food = new Food(foodName, cals, fat, carbs, protein, servingSize);
             if (newFood) {
-                food = new Food(foodName, cals, fat, carbs, protein, servingSize);
                 System.out.println();
                 System.out.println("New Food Values:");
                 System.out.println(food.toString());
@@ -725,7 +716,7 @@ public class FoodTracker {
                         FoodEditor(input);
                         return;
                     } else if (answer == 'y' || answer == 'Y') {
-                        foodData.add(food);
+                        foodData.put(foodName, food);
                         FoodEditor(input);
                         return;
                     } else {
@@ -735,7 +726,7 @@ public class FoodTracker {
                 }
             } else {
                 System.out.println("New Food Values:");
-                System.out.println(new Food(foodName, cals, fat, carbs, protein, servingSize).toString());
+                System.out.println(food.toString());
                 System.out.println();
                 System.out.println("Is This Correct? (y/n):");
                 answer = input.nextLine().charAt(0);
@@ -746,11 +737,7 @@ public class FoodTracker {
                         FoodEditor(input);
                         return;
                     } else if (answer == 'y' || answer == 'Y') {
-                        food.setCals(cals);
-                        food.setFat(fat);
-                        food.setCarbs(carbs);
-                        food.setProtein(protein);
-                        food.setServingSize(servingSize);
+                        foodData.put(foodName, food);
                         FoodEditor(input);
                         return;
                     } else {
@@ -776,26 +763,19 @@ public class FoodTracker {
 
     private static void DisplayMenuItems() {
         System.out.println("Item Name\tIngredients\tTotal Cals");
-
-        for (MenuItem item : menuData) {
-            System.out.println(item.toString());
-        }
-
+        menuData.forEach((k, v) -> System.out.println(v.toString()));
         System.out.println();
     }
 
     private static void DisplayFoodItems() {
         System.out.println("Food\tCalories\tFat\tCarbs\tProtein\tServing Size");
-
-        for (Food food : foodData) {
-            System.out.println(food.toString());
-        }
-
+        foodData.forEach((k, v) -> System.out.println(v.toString()));
         System.out.println();
     }
 
-    private static List<Meal> ReadMealData() throws IOException, CorruptedFileException {
-        List<Meal> mealData = new ArrayList<>();
+    private static TreeMap<Date, TreeMap<String, Meal>> ReadMealData() throws IOException, CorruptedFileException {
+        TreeMap<Date, TreeMap<String, Meal>> mealData = new TreeMap<>();
+        TreeMap<String, Meal> dayMeals = new TreeMap<>();
         File file = new File(mealFile);
         Date date;
         String mealType;
@@ -831,7 +811,7 @@ public class FoodTracker {
                     if (!rowData[1].isBlank()) {
                         mealType = rowData[1];
 
-                        if (!(MealType).contains(mealType)) {
+                        if (!(GlobalConstants.MealTypes).contains(mealType)) {
                             RenameCorruptedFile(file);
                             throw new CorruptedFileException("Corrupted File Detected: Meal Type Invalid");
                         }
@@ -840,7 +820,7 @@ public class FoodTracker {
                         rowData = row.split(",");
 
                         while (!rowData[2].isBlank()) {
-                            MenuItem mealItem = GetMenuItemByName(rowData[2]);
+                            MenuItem mealItem = menuData.get(rowData[2]);
 
                             if (mealItem == null) {
                                 RenameCorruptedFile(file);
@@ -853,11 +833,14 @@ public class FoodTracker {
                         }
                         totalCalories = Double.parseDouble(rowData[3]);
 
-                        mealData.add(new Meal(date, mealType, mealItems, totalCalories));
+                        Meal meal = new Meal(date, mealType, mealItems, totalCalories);
+                        dayMeals.put(mealType, meal);
                     } else {
                         RenameCorruptedFile(file);
                         throw new CorruptedFileException("Corrupted File Detected: Meal Type Missing");
                     }
+
+                    mealData.put(date, dayMeals);
                 }
             }
             csvReader.close();
@@ -869,8 +852,8 @@ public class FoodTracker {
     }
 
     //This assumes that the file is not being modified by the user and that all food exists
-    private static List<MenuItem> ReadMenuItems() throws IOException, CorruptedFileException, NumberFormatException {
-        List<MenuItem> menuItems = new ArrayList<>();
+    private static TreeMap<String, MenuItem> ReadMenuItems() throws IOException, CorruptedFileException, NumberFormatException {
+        TreeMap<String, MenuItem> menuItems = new TreeMap<>();
         File file = new File(menuFile);
         boolean isHeader = true;
 
@@ -892,13 +875,13 @@ public class FoodTracker {
                     row = csvReader.readLine();
                     rowData = row.split(",");
 
-                    if(rowData[1].isBlank()) {
+                    if (rowData[1].isBlank()) {
                         RenameCorruptedFile(file);
                         throw new CorruptedFileException("Corrupted File Detected: Food Is Missing");
                     }
 
                     while (!rowData[1].isBlank()) {
-                        Food food = GetFoodByName(rowData[1]);
+                        Food food = foodData.get(rowData[1]);
                         if (food == null) {
                             RenameCorruptedFile(file);
                             throw new CorruptedFileException("Corrupted File Detected: Food Does Not Exist");
@@ -909,7 +892,7 @@ public class FoodTracker {
                         rowData = row.split(",");
                     }
 
-                    menuItems.add(new MenuItem(name, ingredients));
+                    menuItems.put(name, new MenuItem(name, ingredients));
                 } else {
                     RenameCorruptedFile(file);
                     throw new CorruptedFileException("Corrupted File Detected: Menu Item Missing");
@@ -923,19 +906,8 @@ public class FoodTracker {
         return menuItems;
     }
 
-    private static Food GetFoodByName(String foodName) {
-        foodName = foodName.trim();
-        for (Food food : foodData) {
-            if (food.getName().equalsIgnoreCase(foodName)) {
-                return food;
-            }
-        }
-
-        return null;
-    }
-
-    private static List<Food> ReadInFood() throws IOException {
-        List<Food> foods = new ArrayList<>();
+    private static TreeMap<String, Food> ReadInFood() throws IOException {
+        TreeMap<String, Food> foods = new TreeMap<>();
         File file = new File(foodFile);
         boolean isHeader = true;
 
@@ -957,7 +929,7 @@ public class FoodTracker {
                 double protein = Double.parseDouble(rowData[4]);
                 double servingSize = Double.parseDouble(rowData[5]);
                 Food food = new Food(name, cals, fat, carbs, protein, servingSize);
-                foods.add(food);
+                foods.put(name, food);
             }
 
             csvReader.close();
@@ -977,32 +949,6 @@ public class FoodTracker {
                 "Quit: \t\t\t\t\t\t0");
         System.out.println("Please Enter Number To Continue:");
     }
-
-    private static boolean QuitPrompt(String s) {
-        boolean quit = s.equalsIgnoreCase("q");
-        if (quit) System.out.println();
-        return quit;
-    }
-
-    private static String ToTitleCase(String inputString)
-    {
-        if (inputString.isBlank()) {
-            return "";
-        }
-
-        if (inputString.length() == 1) {
-            return inputString.toUpperCase();
-        }
-
-        return inputString.substring(0, 1).toUpperCase() + inputString.substring(1).toLowerCase();
-    }
-
-    private static void RenameCorruptedFile(File file) {
-        boolean renamed = file.renameTo(new File(file.getName() + ".corrupted"));
-        if (!renamed) {
-            System.out.println("Could Not Rename Corrupted File: File Will Be Deleted On Program Exit");
-        }
-    }
 }
 
 class CorruptedFileException extends Exception {
@@ -1011,7 +957,7 @@ class CorruptedFileException extends Exception {
     }
 }
 
-class Meal {
+class Meal implements Comparable<Meal> {
     private Date mealDate;
     private String mealType;
     private List<MenuItem> mealItems;
@@ -1039,9 +985,16 @@ class Meal {
     double getTotalCalories() {
         return totalCalories;
     }
+
+    @Override
+    public int compareTo(Meal meal) {
+        return this.mealDate.compareTo(meal.mealDate)!=0?
+                this.mealDate.compareTo(meal.mealDate) :
+                GlobalConstants.MealTypes.indexOf(this.mealType)-GlobalConstants.MealTypes.indexOf(meal.mealType);
+    }
 }
 
-class MenuItem {
+class MenuItem implements Comparable<MenuItem> {
     private String name;
     private List<Ingredient> ingredients;
     private double totalCalories;
@@ -1125,6 +1078,11 @@ class MenuItem {
         s.append(" | ").append(totalCalories).append(" calories");
         return s.toString();
     }
+
+    @Override
+    public int compareTo(MenuItem menuItem) {
+        return this.name.compareToIgnoreCase(menuItem.name);
+    }
 }
 
 final class Ingredient {
@@ -1154,7 +1112,7 @@ final class Ingredient {
     }
 }
 
-class Food {
+class Food implements Comparable<Food> {
     private String name;
     private double cals;
     private double fat;
@@ -1238,4 +1196,10 @@ class Food {
                 protein + "\t" +
                 servingSize;
     }
+
+    @Override
+    public int compareTo(Food food) {
+        return this.name.compareToIgnoreCase(food.name);
+    }
 }
+
